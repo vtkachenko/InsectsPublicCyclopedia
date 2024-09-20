@@ -21,8 +21,6 @@ Sample .NET 8 Blazor Application to test DALL-E Image Generation, integrated int
 ## How to launch the app locally
 - Clone the repository to your local folder.
 
-- Using command Prompt, navigate to `InsectsPublicCyclopedia` folder and run the following command to create SQLite database: `dotnet ef database update`
-
 - Add your valid [OpenAI Project API Key](https://platform.openai.com/api-keys) to User Secrets using the following .NET CLI command: `dotnet user-secrets set "OpenAI:ApiKey" "your-openai-api-key"`
 
 - Run the application using the following command: `dotnet run`
