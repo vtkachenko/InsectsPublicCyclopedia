@@ -5,46 +5,42 @@
 
 <h3>Add New Insect</h3>
 <EditForm Model="@insect" OnValidSubmit="HandleValidSubmit">
-    <InputFile OnChange="OnFileChange" />
-    <InputText @bind-Value="insect.Name" readonly="true" placeholder="Insect Name" />
-    <InputTextArea @bind-Value="insect.Description" readonly="true" placeholder="Insect Description" />
-    <button type="submit" class="btn btn-primary">Save</button>
+    <InputText @bind-Value="insect.Name" placeholder="Insect Name" />
+    <InputTextArea @bind-Value="insect.Description" placeholder="Insect Description" />
+    <button type="submit" class="btn btn-primary">Generate Image and Save</button>
 </EditForm>
+
+@if (generatedImage != null)
+{
+    <h4>Generated Image:</h4>
+    <img src="@generatedImage" alt="Generated Insect Image" width="300" />
+}
 
 @code {
     [Inject] public IConfiguration Configuration { get; set; }
-
+    
     private Insect insect = new Insect();
-    private async Task OnFileChange(InputFileChangeEventArgs e)
+    private string? generatedImage;
+
+    private async Task HandleValidSubmit()
     {
-        var imageFile = e.File;
-        using (var memoryStream = new MemoryStream())
-        {
-            await imageFile.OpenReadStream().CopyToAsync(memoryStream);
-            insect.Image = memoryStream.ToArray();
-        }
+        // Generate insect image using DALLE API
+        var prompt = $"Generate an image of an insect. Name: {insect.Name}. Description: {insect.Description}";
 
-        // Prepare API Key from appsettings.json
         var apiKey = Configuration["OpenAI:ApiKey"];
-
-        // Prepare the request
         var httpRequestMessage = new HttpRequestMessage
             {
                 Method = HttpMethod.Post,
-                RequestUri = new Uri("https://api.openai.com/v1/chat/completions"),
+                RequestUri = new Uri("https://api.openai.com/v1/images/generations"),
                 Headers =
-                {
-                    { "Authorization", $"Bearer {apiKey}" },
-                },
+            {
+                { "Authorization", $"Bearer {apiKey}" },
+            },
                 Content = JsonContent.Create(new
                 {
-                    model = "gpt-3.5-turbo",
-                    messages = new[]
-                        {
-                        new { role = "system", content = "You are an expert in identifying insects." },
-                        new { role = "user", content = "Describe this insect and provide its name." }
-                    },
-                    max_tokens = 100
+                    prompt = prompt,
+                    n = 1,
+                    size = "1024x1024" 
                 })
             };
 
@@ -52,30 +48,30 @@
 
         if (response.IsSuccessStatusCode)
         {
-            var result = await response.Content.ReadFromJsonAsync<ChatGPTResponse>();
-            insect.Name = result.Choices[0].Text.Split('\n')[0];
-            insect.Description = result.Choices[0].Text.Split('\n')[1];
+            var result = await response.Content.ReadFromJsonAsync<DalleImageResponse>();
+            generatedImage = result.Data[0].Url;
+
+            // Download the image from URL and convert it to byte array
+            var imageBytes = await Http.GetByteArrayAsync(generatedImage);
+            insect.Image = imageBytes;
+
+            // Save the insect to the database
+            DbContext.Insects.Add(insect);
+            await DbContext.SaveChangesAsync();
         }
         else
         {
-            // Handle error
             Console.WriteLine($"Error: {response.StatusCode} - {response.ReasonPhrase}");
         }
     }
 
-    private async Task HandleValidSubmit()
+    public class DalleImageResponse
     {
-        DbContext.Insects.Add(insect);
-        await DbContext.SaveChangesAsync();
+        public List<DalleImageData> Data { get; set; }
     }
 
-    public class ChatGPTResponse
+    public class DalleImageData
     {
-        public List<Choice> Choices { get; set; }
-    }
-
-    public class Choice
-    {
-        public string Text { get; set; }
+        public string Url { get; set; }
     }
 }
