@@ -1,0 +1,25 @@
+﻿@page "/insects"
+@using InsectsPublicCyclopedia.Data
+@inject InsectsDbContext DbContext
+
+<h3>Insects Public Cyclopedia</h3>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Photo</th>
+            <th>Name</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var insect in DbContext.Insects.ToList())
+        {
+            <tr>
+                <td><img src="data:image;base64,@Convert.ToBase64String(insect.Image)" width="100" /></td>
+                <td>@insect.Name</td>
+                <td>@insect.Description</td>
+            </tr>
+        }
+    </tbody>
+</table>
+<button><a href="/addinsect">Add New Insect</a></button>
